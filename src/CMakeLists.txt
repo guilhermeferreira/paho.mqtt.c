@@ -58,10 +58,21 @@ ADD_LIBRARY(common_obj OBJECT ${common_src})
 SET_PROPERTY(TARGET common_obj PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 ADD_EXECUTABLE(MQTTVersion MQTTVersion.c)
-ADD_LIBRARY(paho-mqtt3c SHARED $<TARGET_OBJECTS:common_obj> MQTTClient.c)
-ADD_LIBRARY(paho-mqtt3a SHARED $<TARGET_OBJECTS:common_obj> MQTTAsync.c)
-TARGET_LINK_LIBRARIES(paho-mqtt3c pthread ${LIBS_SYSTEM}) 
-TARGET_LINK_LIBRARIES(paho-mqtt3a pthread ${LIBS_SYSTEM})
+
+IF (PAHO_BUILD_SHARED)
+    ADD_LIBRARY(paho-mqtt3c SHARED $<TARGET_OBJECTS:common_obj> MQTTClient.c)
+    ADD_LIBRARY(paho-mqtt3a SHARED $<TARGET_OBJECTS:common_obj> MQTTAsync.c)
+    TARGET_LINK_LIBRARIES(paho-mqtt3c pthread ${LIBS_SYSTEM})
+    TARGET_LINK_LIBRARIES(paho-mqtt3a pthread ${LIBS_SYSTEM})
+ENDIF()
+
+IF (PAHO_BUILD_STATIC)
+    ADD_LIBRARY(paho-mqtt3c-static STATIC $<TARGET_OBJECTS:common_obj> MQTTClient.c)
+    ADD_LIBRARY(paho-mqtt3a-static STATIC $<TARGET_OBJECTS:common_obj> MQTTAsync.c)
+    TARGET_LINK_LIBRARIES(paho-mqtt3c-static pthread ${LIBS_SYSTEM})
+    TARGET_LINK_LIBRARIES(paho-mqtt3a-static pthread ${LIBS_SYSTEM})
+ENDIF()
+
 TARGET_LINK_LIBRARIES(MQTTVersion paho-mqtt3a paho-mqtt3c ${LIBS_SYSTEM})
 SET_TARGET_PROPERTIES(
     paho-mqtt3c paho-mqtt3a PROPERTIES
@@ -85,10 +96,21 @@ IF (PAHO_WITH_SSL)
     ## Note: SSL libraries must be recompiled due ifdefs
     ADD_LIBRARY(common_ssl_obj OBJECT ${common_src})
     SET_PROPERTY(TARGET common_ssl_obj PROPERTY POSITION_INDEPENDENT_CODE ON)
-    ADD_LIBRARY(paho-mqtt3cs SHARED $<TARGET_OBJECTS:common_ssl_obj> MQTTClient.c SSLSocket.c)
-    ADD_LIBRARY(paho-mqtt3as SHARED $<TARGET_OBJECTS:common_ssl_obj> MQTTAsync.c SSLSocket.c)
-    TARGET_LINK_LIBRARIES(paho-mqtt3cs pthread ${OPENSSL_LIBRARIES} ${LIBS_SYSTEM})
-    TARGET_LINK_LIBRARIES(paho-mqtt3as pthread ${OPENSSL_LIBRARIES} ${LIBS_SYSTEM})
+
+    IF (PAHO_BUILD_SHARED)
+        ADD_LIBRARY(paho-mqtt3cs SHARED $<TARGET_OBJECTS:common_ssl_obj> MQTTClient.c SSLSocket.c)
+        ADD_LIBRARY(paho-mqtt3as SHARED $<TARGET_OBJECTS:common_ssl_obj> MQTTAsync.c SSLSocket.c)
+        TARGET_LINK_LIBRARIES(paho-mqtt3cs pthread ${OPENSSL_LIBRARIES} ${LIBS_SYSTEM})
+        TARGET_LINK_LIBRARIES(paho-mqtt3as pthread ${OPENSSL_LIBRARIES} ${LIBS_SYSTEM})
+    ENDIF()
+
+    IF (PAHO_BUILD_STATIC)
+        ADD_LIBRARY(paho-mqtt3cs-static STATIC $<TARGET_OBJECTS:common_ssl_obj> MQTTClient.c SSLSocket.c)
+        ADD_LIBRARY(paho-mqtt3as-static STATIC $<TARGET_OBJECTS:common_ssl_obj> MQTTAsync.c SSLSocket.c)
+        TARGET_LINK_LIBRARIES(paho-mqtt3cs-static pthread ${OPENSSL_LIBRARIES} ${LIBS_SYSTEM})
+        TARGET_LINK_LIBRARIES(paho-mqtt3as-static pthread ${OPENSSL_LIBRARIES} ${LIBS_SYSTEM})
+    ENDIF()
+
     SET_TARGET_PROPERTIES(
         paho-mqtt3cs paho-mqtt3as PROPERTIES
         VERSION ${CLIENT_VERSION}
