@@ -12,6 +12,7 @@
 # 
 #  Contributors:
 #     Rainer Poisel - initial version
+#     Guilherme Maciel Ferreira - add test subdir
 #*******************************************************************************/
 
 # Note: on OS X you should install XCode and the associated command-line tools
@@ -37,10 +38,16 @@ SET(PAHO_WITH_SSL FALSE CACHE BOOL "Flag that defines whether to build ssl-enabl
 SET(PAHO_BUILD_STATIC FALSE CACHE BOOL "Build static library")
 SET(PAHO_BUILD_DOCUMENTATION FALSE CACHE BOOL "Create and install the HTML based API documentation (requires Doxygen)")
 SET(PAHO_BUILD_SAMPLES FALSE CACHE BOOL "Build sample programs")
+SET(PAHO_BUILD_TEST FALSE CACHE BOOL "Build test programs")
 
 ADD_SUBDIRECTORY(src)
+
 IF(PAHO_BUILD_SAMPLES)
     ADD_SUBDIRECTORY(src/samples)
+ENDIF()
+
+IF(PAHO_BUILD_TEST)
+    ADD_SUBDIRECTORY(test)
 ENDIF()
 
 IF(PAHO_BUILD_DOCUMENTATION)
