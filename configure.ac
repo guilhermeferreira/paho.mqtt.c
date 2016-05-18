@@ -82,6 +82,42 @@ AC_CHECK_FUNCS([strerror])
 AC_CHECK_FUNCS([strrchr])
 AC_CHECK_FUNCS([strstr])
 
+echo -n "checking POSIX.1-2008 support... "
+AC_EGREP_CPP(posix_200809L_supported,
+	[#define _POSIX_C_SOURCE 200809L
+	#include <unistd.h>
+	#ifdef _POSIX_VERSION
+	#if _POSIX_VERSION == 200809L
+	posix_200809L_supported
+	#endif
+	#endif
+	],
+	[
+		echo "yes"
+	],
+	[
+		echo "no"
+		AC_MSG_FAILURE([implementation must conform to the POSIX.1-2008 standard])
+	]
+)
+
+echo -n "checking BSD definitions support... "
+AC_EGREP_CPP(bsd_source_supported,
+	[#define _BSD_SOURCE
+	#include <sys/time.h>
+	#ifdef timersub
+	bsd_source_supported
+	#endif
+	],
+	[
+		echo "yes"
+	],
+	[
+		echo "no"
+		AC_MSG_FAILURE([implementation must support _BSD_SOURCE])
+	]
+)
+
 ###############################################################################
 # Input options
 ###############################################################################

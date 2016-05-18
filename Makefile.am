@@ -22,6 +22,11 @@ ACLOCAL_AMFLAGS = -I m4
 ###############################################################################
 
 AM_CPPFLAGS = -I $(srcdir)/src -I src
+# For pthread_mutexattr_settype(3)
+AM_CPPFLAGS += -D_POSIX_C_SOURCE=200809L
+# For timersub(3)
+AM_CPPFLAGS += -D_BSD_SOURCE
+
 # AM_CFLAGS are added by default to the CFLAGS within automake, except there are more special CFLAGS
 AM_CFLAGS =
 
