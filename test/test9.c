@@ -26,6 +26,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "Thread.h"
+#include "Time.h"
 
 #if !defined(_WINDOWS)
 	#include <sys/time.h>
@@ -126,67 +127,6 @@ void MyLog(int LOGA_level, char* format, ...)
 	fflush(stdout);
 }
 
-void MySleep(long milliseconds)
-{
-#if defined(WIN32) || defined(WIN64)
-	Sleep(milliseconds);
-#else
-	usleep(milliseconds*1000);
-#endif
-}
-
-#if defined(WIN32) || defined(_WINDOWS)
-#define START_TIME_TYPE DWORD
-static DWORD start_time = 0;
-START_TIME_TYPE start_clock(void)
-{
-	return GetTickCount();
-}
-#elif defined(AIX)
-#define START_TIME_TYPE struct timespec
-START_TIME_TYPE start_clock(void)
-{
-	static struct timespec start;
-	clock_gettime(CLOCK_REALTIME, &start);
-	return start;
-}
-#else
-#define START_TIME_TYPE struct timeval
-/* TODO - unused - remove? static struct timeval start_time; */
-START_TIME_TYPE start_clock(void)
-{
-	struct timeval start_time;
-	gettimeofday(&start_time, NULL);
-	return start_time;
-}
-#endif
-
-#if defined(WIN32)
-long elapsed(START_TIME_TYPE start_time)
-{
-	return GetTickCount() - start_time;
-}
-#elif defined(AIX)
-#define assert(a)
-long elapsed(struct timespec start)
-{
-	struct timespec now, res;
-
-	clock_gettime(CLOCK_REALTIME, &now);
-	ntimersub(now, start, res);
-	return (res.tv_sec)*1000L + (res.tv_nsec)/1000000L;
-}
-#else
-long elapsed(START_TIME_TYPE start_time)
-{
-	struct timeval now, res;
-
-	gettimeofday(&now, NULL);
-	timersub(&now, &start_time, &res);
-	return (res.tv_sec) * 1000 + (res.tv_usec) / 1000;
-}
-#endif
-
 #define assert(a, b, c, d) myassert(__FILE__, __LINE__, a, b, c, d)
 #define assert1(a, b, c, d, e) myassert(__FILE__, __LINE__, a, b, c, d, e)
 
@@ -202,7 +142,7 @@ char* cur_output = output;
 
 void write_test_result()
 {
-	long duration = elapsed(global_start_time);
+	long duration = Time_elapsed(global_start_time);
 
 	fprintf(xml, " time=\"%ld.%.3ld\" >\n", duration / 1000, duration % 1000); 
 	if (cur_output != output)
@@ -393,7 +333,7 @@ int test1(struct Options options)
 	failures = 0;
 	MyLog(LOGA_INFO, "Starting Offline buffering 1 - messages while disconnected");
 	fprintf(xml, "<testcase classname=\"test1\" name=\"%s\"", testname);
-	global_start_time = start_clock();
+	global_start_time = Time_start_clock();
 
 	createOptions.sendWhileDisconnected = 1;
 	rc = MQTTAsync_createWithOptions(&c, options.proxy_connection, clientidc, MQTTCLIENT_PERSISTENCE_DEFAULT, 
@@ -437,7 +377,7 @@ int test1(struct Options options)
 	/* wait until d is ready: connected and subscribed */
 	count = 0;
 	while (!test1dReady && ++count < 10000)
-		MySleep(100);
+		Time_sleep(100);
 	assert("Count should be less than 10000", count < 10000, "count was %d", count); /* wrong */
 	
 	rc = MQTTAsync_setConnected(c, c, test1cConnected);
@@ -465,7 +405,7 @@ int test1(struct Options options)
 		
 	/* wait for will message */
 	while (!test1_will_message_received && ++count < 10000)
-		MySleep(100);
+		Time_sleep(100);
 	
 	MyLog(LOGA_DEBUG, "Now we can send some messages to be buffered");
 	
@@ -502,11 +442,11 @@ int test1(struct Options options)
 	
 	/* wait for client to be reconnected */
 	while (!test1c_connected == 0 && ++count < 10000)
-		MySleep(100);
+		Time_sleep(100);
 	
 	/* wait for success or failure callback */
 	while (test1_messages_received < 3 && ++count < 10000)
-		MySleep(100);
+		Time_sleep(100);
 
 	rc = MQTTAsync_getPendingTokens(c, &tokens);
  	assert("Good rc from getPendingTokens", rc == MQTTASYNC_SUCCESS, "rc was %d ", rc);
@@ -670,7 +610,7 @@ int test2(struct Options options)
 	failures = 0;
 	MyLog(LOGA_INFO, "Starting Offline buffering 2 - messages while disconnected with serverURIs");
 	fprintf(xml, "<testcase classname=\"test2\" name=\"%s\"", testname);
-	global_start_time = start_clock();
+	global_start_time = Time_start_clock();
 
 	createOptions.sendWhileDisconnected = 1;
 	rc = MQTTAsync_createWithOptions(&c, "not used", clientidc, MQTTCLIENT_PERSISTENCE_DEFAULT, 
@@ -712,7 +652,7 @@ int test2(struct Options options)
 	/* wait until d is ready: connected and subscribed */
 	count = 0;
 	while (!test2dReady && ++count < 10000)
-		MySleep(100);
+		Time_sleep(100);
 	assert("Count should be less than 10000", count < 10000, "count was %d", count); /* wrong */
 	
 	rc = MQTTAsync_setConnected(c, c, test2cConnected);
@@ -742,7 +682,7 @@ int test2(struct Options options)
 		
 	/* wait for will message */
 	while (!test2_will_message_received && ++count < 10000)
-		MySleep(100);
+		Time_sleep(100);
 	
 	MyLog(LOGA_DEBUG, "Now we can send some messages to be buffered");
 	
@@ -779,11 +719,11 @@ int test2(struct Options options)
 	
 	/* wait for client to be reconnected */
 	while (!test2c_connected == 0 && ++count < 10000)
-		MySleep(100);
+		Time_sleep(100);
 	
 	/* wait for success or failure callback */
 	while (test2_messages_received < 3 && ++count < 10000)
-		MySleep(100);
+		Time_sleep(100);
 
 	rc = MQTTAsync_getPendingTokens(c, &tokens);
  	assert("Good rc from getPendingTokens", rc == MQTTASYNC_SUCCESS, "rc was %d ", rc);
@@ -945,7 +885,7 @@ int test3(struct Options options)
 	failures = 0;
 	MyLog(LOGA_INFO, "Starting Offline buffering 3 - messages while disconnected");
 	fprintf(xml, "<testcase classname=\"test3\" name=\"%s\"", testname);
-	global_start_time = start_clock();
+	global_start_time = Time_start_clock();
 
 	createOptions.sendWhileDisconnected = 1;
 	rc = MQTTAsync_createWithOptions(&c, options.proxy_connection, clientidc, MQTTCLIENT_PERSISTENCE_DEFAULT, 
@@ -989,7 +929,7 @@ int test3(struct Options options)
 	/* wait until d is ready: connected and subscribed */
 	count = 0;
 	while (!test3dReady && ++count < 10000)
-		MySleep(100);
+		Time_sleep(100);
 	assert("Count should be less than 10000", count < 10000, "count was %d", count); /* wrong */
 	
 	rc = MQTTAsync_setConnected(c, c, test3cConnected);
@@ -1018,7 +958,7 @@ int test3(struct Options options)
 		
 	/* wait for will message */
 	while (!test3_will_message_received && ++count < 10000)
-		MySleep(100);
+		Time_sleep(100);
 	
 	MyLog(LOGA_DEBUG, "Now we can send some messages to be buffered");
 	
@@ -1052,11 +992,11 @@ int test3(struct Options options)
   	
 	/* wait for client to be reconnected */
 	while (!test3c_connected == 0 && ++count < 10000)
-		MySleep(100);
+		Time_sleep(100);
 	
 	/* wait for success or failure callback */
 	while (test3_messages_received < 3 && ++count < 10000)
-		MySleep(100);
+		Time_sleep(100);
 
 	rc = MQTTAsync_getPendingTokens(c, &tokens);
  	assert("Good rc from getPendingTokens", rc == MQTTASYNC_SUCCESS, "rc was %d ", rc);
@@ -1220,7 +1160,7 @@ int test4(struct Options options)
 	failures = 0;
 	MyLog(LOGA_INFO, "Starting Offline buffering 4 - messages while disconnected with serverURIs");
 	fprintf(xml, "<testcase classname=\"test4\" name=\"%s\"", testname);
-	global_start_time = start_clock();
+	global_start_time = Time_start_clock();
 
 	createOptions.sendWhileDisconnected = 1;
 	rc = MQTTAsync_createWithOptions(&c, "not used", clientidc, MQTTCLIENT_PERSISTENCE_DEFAULT, 
@@ -1262,7 +1202,7 @@ int test4(struct Options options)
 	/* wait until d is ready: connected and subscribed */
 	count = 0;
 	while (!test4dReady && ++count < 10000)
-		MySleep(100);
+		Time_sleep(100);
 	assert("Count should be less than 10000", count < 10000, "count was %d", count); /* wrong */
 	
 	rc = MQTTAsync_setConnected(c, c, test4cConnected);
@@ -1293,7 +1233,7 @@ int test4(struct Options options)
 		
 	/* wait for will message */
 	while (!test4_will_message_received && ++count < 10000)
-		MySleep(100);
+		Time_sleep(100);
 	
 	MyLog(LOGA_DEBUG, "Now we can send some messages to be buffered");
 	
@@ -1327,11 +1267,11 @@ int test4(struct Options options)
 	
 	/* wait for client to be reconnected */
 	while (!test4c_connected == 0 && ++count < 10000)
-		MySleep(100);
+		Time_sleep(100);
 	
 	/* wait for success or failure callback */
 	while (test4_messages_received < 3 && ++count < 10000)
-		MySleep(100);
+		Time_sleep(100);
 
 	rc = MQTTAsync_getPendingTokens(c, &tokens);
  	assert("Good rc from getPendingTokens", rc == MQTTASYNC_SUCCESS, "rc was %d ", rc);
@@ -1494,7 +1434,7 @@ int test5(struct Options options)
 	failures = 0;
 	MyLog(LOGA_INFO, "Starting Offline buffering 5 - max buffered");
 	fprintf(xml, "<testcase classname=\"test5\" name=\"%s\"", testname);
-	global_start_time = start_clock();
+	global_start_time = Time_start_clock();
 
 	createOptions.sendWhileDisconnected = 1;
 	createOptions.maxBufferedMessages = 3;
@@ -1539,7 +1479,7 @@ int test5(struct Options options)
 	/* wait until d is ready: connected and subscribed */
 	count = 0;
 	while (!test5dReady && ++count < 10000)
-		MySleep(100);
+		Time_sleep(100);
 	assert("Count should be less than 10000", count < 10000, "count was %d", count); /* wrong */
 	
 	rc = MQTTAsync_setConnected(c, c, test5cConnected);
@@ -1567,7 +1507,7 @@ int test5(struct Options options)
 		
 	/* wait for will message */
 	while (!test5_will_message_received && ++count < 10000)
-		MySleep(100);
+		Time_sleep(100);
 	
 	MyLog(LOGA_DEBUG, "Now we can send some messages to be buffered");
 	
@@ -1607,11 +1547,11 @@ int test5(struct Options options)
 	
 	/* wait for client to be reconnected */
 	while (!test5c_connected == 0 && ++count < 10000)
-		MySleep(100);
+		Time_sleep(100);
 	
 	/* wait for success or failure callback */
 	while (test5_messages_received < 3 && ++count < 10000)
-		MySleep(100);
+		Time_sleep(100);
 
 	rc = MQTTAsync_getPendingTokens(c, &tokens);
  	assert("Good rc from getPendingTokens", rc == MQTTASYNC_SUCCESS, "rc was %d ", rc);

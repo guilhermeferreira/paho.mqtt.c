@@ -35,6 +35,8 @@
 #define ECONNRESET WSAECONNRESET
 #endif
 
+#include "Time.h"
+
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 
 
@@ -173,31 +175,11 @@ void getopts(int argc, char** argv)
 
 #if defined(WIN32) || defined(_WINDOWS)
 #define msleep Sleep
-#define START_TIME_TYPE DWORD
 static DWORD start_time = 0;
-START_TIME_TYPE start_clock(void)
-{
-	return GetTickCount();
-}
 #elif defined(AIX)
 #define mqsleep sleep
-#define START_TIME_TYPE struct timespec
-START_TIME_TYPE start_clock(void)
-{
-	static struct timespec start;
-	clock_gettime(CLOCK_REALTIME, &start);
-	return start;
-}
 #else
 #define msleep(A) usleep(A*1000)
-#define START_TIME_TYPE struct timeval
-/* TODO - unused - remove? static struct timeval start_time; */
-START_TIME_TYPE start_clock(void)
-{
-	struct timeval start_time;
-	gettimeofday(&start_time, NULL);
-	return start_time;
-}
 #endif
 
 #define LOGA_DEBUG 0

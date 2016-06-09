@@ -38,6 +38,8 @@
 	#include <winsock2.h>
 #endif
 
+#include "Time.h"
+
 void usage()
 {
 	printf("help!!\n");
@@ -212,58 +214,17 @@ void MyLog(int log_level, char* format, ...)
 
 #if defined(WIN32) || defined(_WINDOWS)
 #define mqsleep(A) Sleep(1000*A)
-#define START_TIME_TYPE DWORD
 static DWORD start_time = 0;
-START_TIME_TYPE start_clock(void)
-{
-	return GetTickCount();
-}
 #elif defined(AIX)
 #define mqsleep sleep
-#define START_TIME_TYPE struct timespec
-START_TIME_TYPE start_clock(void)
-{
-	static struct timespec start;
-	clock_gettime(CLOCK_REALTIME, &start);
-	return start;
-}
 #else
 #define mqsleep sleep
-#define START_TIME_TYPE struct timeval
 static struct timeval start_time;
-START_TIME_TYPE start_clock(void)
-{
-	struct timeval start_time;
-	gettimeofday(&start_time, NULL);
-	return start_time;
-}
 #endif
 
 
-#if defined(WIN32)
-long elapsed(START_TIME_TYPE start_time)
-{
-	return GetTickCount() - start_time;
-}
-#elif defined(AIX)
+#if defined(AIX)
 #define assert(a)
-long elapsed(struct timespec start)
-{
-	struct timespec now, res;
-
-	clock_gettime(CLOCK_REALTIME, &now);
-	ntimersub(now, start, res);
-	return (res.tv_sec)*1000L + (res.tv_nsec)/1000000L;
-}
-#else
-long elapsed(START_TIME_TYPE start_time)
-{
-	struct timeval now, res;
-
-	gettimeofday(&now, NULL);
-	timersub(&now, &start_time, &res);
-	return (res.tv_sec)*1000 + (res.tv_usec)/1000;
-}
 #endif
 
 MQTTAsync control_client;
@@ -422,7 +383,7 @@ int messageArrived(void* context, char* topicName, int topicLen,
 	MQTTAsync_freeMessage(&m);
 
 	if (measuring && arrivedCount == test_count)
-		roundtrip_time = elapsed(global_start_time);
+		roundtrip_time = Time_elapsed(global_start_time);
 	return 1;
 }
 
@@ -583,7 +544,7 @@ int waitForCompletion(START_TIME_TYPE start_time)
 		if (arrivedCount > lastreport)
 		{
 			MyLog(LOGA_ALWAYS, "%d messages arrived out of %d expected, in %d seconds",
-					arrivedCount, expectedCount, elapsed(start_time) / 1000);
+					arrivedCount, expectedCount, Time_elapsed(start_time) / 1000);
 			lastreport = arrivedCount;
 		}
 		mqsleep(1);
@@ -592,11 +553,11 @@ int waitForCompletion(START_TIME_TYPE start_time)
 		if (++wait_count > limit || stopping)
 			break;
 	}
-	last_completion_time = elapsed(start_time) / 1000;
+	last_completion_time = Time_elapsed(start_time) / 1000;
 	MyLog(LOGA_ALWAYS, "Extra wait to see if any duplicates arrive");
 	mqsleep(10);            /* check if any duplicate messages arrive */
 	MyLog(LOGA_ALWAYS, "%d messages arrived out of %d expected, in %d seconds",
-				arrivedCount, expectedCount, elapsed(start_time) / 1000);
+				arrivedCount, expectedCount, Time_elapsed(start_time) / 1000);
 	return success(expectedCount);
 }
 
@@ -628,7 +589,7 @@ void one_iteration()
 	MyLog(LOGA_INFO, "Evaluating how many messages needed");
 	expectedCount = arrivedCount = 0;
 	measuring = 1;
-	global_start_time = start_clock();
+	global_start_time = Time_start_clock();
 	for (i = 1; i <= test_count; ++i)
 	{
 		char payload[128];
@@ -677,7 +638,7 @@ void one_iteration()
 	MyLog(LOGA_ALWAYS, "Starting 30 second test run with %d messages", expectedCount);
 	arrivedCount = 0;
 	messagesSent = 0;
-	start_time = start_clock();
+	start_time = Time_start_clock();
 	while (seqno < expectedCount)
 	{
 		MQTTAsync_responseOptions ropts = MQTTAsync_responseOptions_initializer;
@@ -703,7 +664,7 @@ void one_iteration()
 		while (seqno - messagesSent > 2000)
 			mqsleep(1);
 	}
-	MyLog(LOGA_ALWAYS, "%d messages sent in %d seconds", expectedCount, elapsed(start_time) / 1000);
+	MyLog(LOGA_ALWAYS, "%d messages sent in %d seconds", expectedCount, Time_elapsed(start_time) / 1000);
  
 	waitForCompletion(start_time);
 	control_wait("test finished");

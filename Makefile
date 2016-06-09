@@ -102,6 +102,12 @@ ASYNC_TESTS = ${addprefix ${blddir}/test/,${TEST_FILES_A}}
 TEST_FILES_AS = test5
 ASYNC_SSL_TESTS = ${addprefix ${blddir}/test/,${TEST_FILES_AS}}
 
+TEST_SOURCE_FILES = $(srcdir)/Time.c
+TEST_SOURCE_FILES += $(srcdir)/StackTrace.c
+TEST_SOURCE_FILES += $(srcdir)/Log.c
+TEST_SOURCE_FILES += $(srcdir)/Messages.c
+TEST_SOURCE_FILES += $(srcdir)/Thread.c
+
 # The names of the four different libraries to be built
 MQTTLIB_C = paho-mqtt3c
 MQTTLIB_CS = paho-mqtt3cs
@@ -184,16 +190,16 @@ mkdir:
 	echo OSTYPE is $(OSTYPE)
 
 ${SYNC_TESTS}: ${blddir}/test/%: ${srcdir}/../test/%.c $(MQTTLIB_C_TARGET)
-	${CC} -DNOSTACKTRACE $(srcdir)/Thread.c -g -o $@ $< -l${MQTTLIB_C} ${FLAGS_EXE}
+	${CC} -DNOSTACKTRACE ${TEST_SOURCE_FILES} -g -o $@ $< -l${MQTTLIB_C} ${FLAGS_EXE}
 
 ${SYNC_SSL_TESTS}: ${blddir}/test/%: ${srcdir}/../test/%.c $(MQTTLIB_CS_TARGET)
-	${CC} -g -o $@ $< -l${MQTTLIB_CS} ${FLAGS_EXES}
+	${CC} ${TEST_SOURCE_FILES} -g -o $@ $< -l${MQTTLIB_CS} ${FLAGS_EXES}
 
 ${ASYNC_TESTS}: ${blddir}/test/%: ${srcdir}/../test/%.c $(MQTTLIB_CS_TARGET)
-	${CC} -g -o $@ $< -l${MQTTLIB_A} ${FLAGS_EXE}
+	${CC} ${TEST_SOURCE_FILES} -g -o $@ $< -l${MQTTLIB_A} ${FLAGS_EXE}
 
 ${ASYNC_SSL_TESTS}: ${blddir}/test/%: ${srcdir}/../test/%.c $(MQTTLIB_CS_TARGET) $(MQTTLIB_AS_TARGET)
-	${CC} -g -o $@ $< -l${MQTTLIB_AS} ${FLAGS_EXES}
+	${CC} ${TEST_SOURCE_FILES} -g -o $@ $< -l${MQTTLIB_AS} ${FLAGS_EXES}
 
 ${SYNC_SAMPLES}: ${blddir}/samples/%: ${srcdir}/samples/%.c $(MQTTLIB_C_TARGET)
 	${CC} -o $@ $< -l${MQTTLIB_C} ${FLAGS_EXE}

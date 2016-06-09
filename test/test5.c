@@ -49,6 +49,8 @@
 #define snprintf _snprintf
 #endif
 
+#include "Time.h"
+
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 
 void usage()
@@ -212,57 +214,15 @@ void MyLog(int LOGA_level, char* format, ...)
 
 #if defined(WIN32) || defined(_WINDOWS)
 #define mqsleep(A) Sleep(1000*A)
-#define START_TIME_TYPE DWORD
 static DWORD start_time = 0;
-START_TIME_TYPE start_clock(void)
-{
-	return GetTickCount();
-}
 #elif defined(AIX)
 #define mqsleep sleep
-#define START_TIME_TYPE struct timespec
-START_TIME_TYPE start_clock(void)
-{
-	static struct timespec start;
-	clock_gettime(CLOCK_REALTIME, &start);
-	return start;
-}
 #else
 #define mqsleep sleep
-#define START_TIME_TYPE struct timeval
-/* TODO - unused - remove? static struct timeval start_time; */
-START_TIME_TYPE start_clock(void)
-{
-	struct timeval start_time;
-	gettimeofday(&start_time, NULL);
-	return start_time;
-}
 #endif
 
-#if defined(WIN32)
-long elapsed(START_TIME_TYPE start_time)
-{
-	return GetTickCount() - start_time;
-}
-#elif defined(AIX)
+#if defined(AIX)
 #define assert(a)
-long elapsed(struct timespec start)
-{
-	struct timespec now, res;
-
-	clock_gettime(CLOCK_REALTIME, &now);
-	ntimersub(now, start, res);
-	return (res.tv_sec)*1000L + (res.tv_nsec)/1000000L;
-}
-#else
-long elapsed(START_TIME_TYPE start_time)
-{
-	struct timeval now, res;
-
-	gettimeofday(&now, NULL);
-	timersub(&now, &start_time, &res);
-	return (res.tv_sec) * 1000 + (res.tv_usec) / 1000;
-}
 #endif
 
 #define assert(a, b, c, d) myassert(__FILE__, __LINE__, a, b, c, d)
@@ -280,7 +240,7 @@ char* cur_output = output;
 
 void write_test_result()
 {
-	long duration = elapsed(global_start_time);
+	long duration = Time_elapsed(global_start_time);
 
 	fprintf(xml, " time=\"%ld.%.3ld\" >\n", duration / 1000, duration % 1000); 
 	if (cur_output != output)
@@ -626,7 +586,7 @@ int test1(struct Options options)
 	failures = 0;
 	MyLog(LOGA_INFO, "Starting SSL test 1 - connection to nonSSL MQTT server");
 	fprintf(xml, "<testcase classname=\"test5\" name=\"%s\"", testname);
-	global_start_time = start_clock();
+	global_start_time = Time_start_clock();
 
 	rc = MQTTAsync_create(&c, options.connection, "test1", MQTTCLIENT_PERSISTENCE_DEFAULT,
 			NULL);
@@ -719,7 +679,7 @@ int test2a(struct Options options)
 	failures = 0;
 	MyLog(LOGA_INFO, "Starting test 2a - Mutual SSL authentication");
 	fprintf(xml, "<testcase classname=\"test5\" name=\"%s\"", testname);
-	global_start_time = start_clock();
+	global_start_time = Time_start_clock();
 
 	MQTTAsync_create(&c, options.mutual_auth_connection, "test2a", MQTTCLIENT_PERSISTENCE_DEFAULT, NULL);
 	assert("good rc from create", rc == MQTTASYNC_SUCCESS, "rc was %d\n", rc);
@@ -834,7 +794,7 @@ int test2b(struct Options options)
 	MyLog(LOGA_INFO,
 			"Starting test 2b - connection to SSL MQTT server with clientauth=req but server does not have client cert");
 	fprintf(xml, "<testcase classname=\"test5\" name=\"%s\"", testname);
-	global_start_time = start_clock();
+	global_start_time = Time_start_clock();
 
 	rc = MQTTAsync_create(&c, options.nocert_mutual_auth_connection,
             "test2b", MQTTCLIENT_PERSISTENCE_DEFAULT, NULL);
@@ -930,7 +890,7 @@ int test2c(struct Options options)
 			LOGA_INFO,
 			"Starting test 2c - connection to SSL MQTT server, server auth enabled but unknown cert");
 	fprintf(xml, "<testcase classname=\"test5\" name=\"%s\"", testname);
-	global_start_time = start_clock();
+	global_start_time = Time_start_clock();
 
 	rc = MQTTAsync_create(&c, options.nocert_mutual_auth_connection, 
             "test2c", MQTTCLIENT_PERSISTENCE_DEFAULT, NULL);
@@ -1020,7 +980,7 @@ int test3a(struct Options options)
 
 	MyLog(LOGA_INFO, "Starting test 3a - Server authentication");
 	fprintf(xml, "<testcase classname=\"test5\" name=\"%s\"", testname);
-	global_start_time = start_clock();
+	global_start_time = Time_start_clock();
 
 	MQTTAsync_create(&c, options.server_auth_connection, "test3a", MQTTCLIENT_PERSISTENCE_DEFAULT, NULL);
 
@@ -1152,7 +1112,7 @@ int test3b(struct Options options)
 			LOGA_INFO,
 			"Starting test 3b - connection to SSL MQTT server with clientauth=opt but client does not have server cert");
 	fprintf(xml, "<testcase classname=\"test5\" name=\"%s\"", testname);
-	global_start_time = start_clock();
+	global_start_time = Time_start_clock();
 
 	rc = MQTTAsync_create(&c, options.server_auth_connection, "test3b", MQTTCLIENT_PERSISTENCE_DEFAULT,
 			NULL);
@@ -1242,7 +1202,7 @@ int test4(struct Options options)
 
 	MyLog(LOGA_INFO, "Starting test 4 - accept invalid server certificates");
 	fprintf(xml, "<testcase classname=\"test5\" name=\"%s\"", testname);
-	global_start_time = start_clock();
+	global_start_time = Time_start_clock();
 
 	MQTTAsync_create(&c, options.server_auth_connection, "test4", MQTTCLIENT_PERSISTENCE_DEFAULT, NULL);
 
@@ -1371,7 +1331,7 @@ int test5a(struct Options options)
 	MyLog(LOGA_INFO,
 			"Starting SSL test 5a - Anonymous ciphers - server authentication disabled");
 	fprintf(xml, "<testcase classname=\"test5\" name=\"%s\"", testname);
-	global_start_time = start_clock();
+	global_start_time = Time_start_clock();
 
 	rc = MQTTAsync_create(&c, options.anon_connection, "test5a", MQTTCLIENT_PERSISTENCE_DEFAULT,
 			NULL);
@@ -1504,7 +1464,7 @@ int test5b(struct Options options)
 	MyLog(LOGA_INFO,
 			"Starting SSL test 5b - Anonymous ciphers - server authentication enabled");
 	fprintf(xml, "<testcase classname=\"test5\" name=\"%s\"", testname);
-	global_start_time = start_clock();
+	global_start_time = Time_start_clock();
 
 	rc = MQTTAsync_create(&c, options.anon_connection, "test5b", MQTTCLIENT_PERSISTENCE_DEFAULT,
 			NULL);
@@ -1637,7 +1597,7 @@ int test5c(struct Options options)
 	MyLog(LOGA_INFO,
 			"Starting SSL test 5c - Anonymous ciphers - client not using anonymous cipher");
 	fprintf(xml, "<testcase classname=\"test5\" name=\"%s\"", testname);
-	global_start_time = start_clock();
+	global_start_time = Time_start_clock();
 
 	rc = MQTTAsync_create(&c, options.anon_connection, "test5c", MQTTCLIENT_PERSISTENCE_DEFAULT,
 			NULL);
@@ -1725,7 +1685,7 @@ int test6(struct Options options)
 
 	MyLog(LOGA_INFO, "Starting test 6 - multiple connections");
 	fprintf(xml, "<testcase classname=\"test5\" name=\"%s\"", testname);
-	global_start_time = start_clock();
+	global_start_time = Time_start_clock();
 
 	for (i = 0; i < num_clients; ++i)
 	{
@@ -1958,7 +1918,7 @@ int test7(struct Options options)
 
 	MyLog(LOGA_INFO, "Starting test 7 - big messages");
 	fprintf(xml, "<testcase classname=\"test5\" name=\"%s\"", testname);
-	global_start_time = start_clock();
+	global_start_time = Time_start_clock();
 
 	rc = MQTTAsync_create(&c, options.server_auth_connection, "async_test_7", MQTTCLIENT_PERSISTENCE_NONE,
 			NULL);

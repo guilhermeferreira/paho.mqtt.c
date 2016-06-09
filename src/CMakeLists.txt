@@ -45,6 +45,7 @@ SET(common_src
     SocketBuffer.c
     Heap.c
     LinkedList.c
+    Time.c
     )
 
 IF (CMAKE_SYSTEM_NAME MATCHES "Windows")

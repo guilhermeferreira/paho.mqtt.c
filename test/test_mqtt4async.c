@@ -50,6 +50,8 @@
 #define setenv(a, b, c) _putenv_s(a, b)
 #endif
 
+#include "Time.h"
+
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 
 void usage()
@@ -167,58 +169,16 @@ void MyLog(int LOGA_level, char* format, ...)
 
 #if defined(WIN32) || defined(_WINDOWS)
 #define mqsleep(A) Sleep(1000*A)
-#define START_TIME_TYPE DWORD
 static DWORD start_time = 0;
-START_TIME_TYPE start_clock(void)
-{
-	return GetTickCount();
-}
 #elif defined(AIX)
 #define mqsleep sleep
-#define START_TIME_TYPE struct timespec
-START_TIME_TYPE start_clock(void)
-{
-	static struct timespec start;
-	clock_gettime(CLOCK_REALTIME, &start);
-	return start;
-}
 #else
 #define mqsleep sleep
-#define START_TIME_TYPE struct timeval
-/* TODO - unused - remove? static struct timeval start_time; */
-START_TIME_TYPE start_clock(void)
-{
-	struct timeval start_time;
-	gettimeofday(&start_time, NULL);
-	return start_time;
-}
 #endif
 
 
-#if defined(WIN32)
-long elapsed(START_TIME_TYPE start_time)
-{
-	return GetTickCount() - start_time;
-}
-#elif defined(AIX)
+#if defined(AIX)
 #define assert(a)
-long elapsed(struct timespec start)
-{
-	struct timespec now, res;
-
-	clock_gettime(CLOCK_REALTIME, &now);
-	ntimersub(now, start, res);
-	return (res.tv_sec)*1000L + (res.tv_nsec)/1000000L;
-}
-#else
-long elapsed(START_TIME_TYPE start_time)
-{
-	struct timeval now, res;
-
-	gettimeofday(&now, NULL);
-	timersub(&now, &start_time, &res);
-	return (res.tv_sec)*1000 + (res.tv_usec)/1000;
-}
 #endif
 
 
@@ -236,7 +196,7 @@ int test_finished = 0;
 
 void write_test_result()
 {
-	long duration = elapsed(global_start_time);
+	long duration = Time_elapsed(global_start_time);
 
 	fprintf(xml, " time=\"%ld.%.3ld\" >\n", duration / 1000, duration % 1000); 
 	if (cur_output != output)
@@ -408,7 +368,7 @@ int test1(struct Options options)
 	char* test_topic = "C client test1";
 
 	fprintf(xml, "<testcase classname=\"test1\" name=\"sessionPresent\"");
-	global_start_time = start_clock();
+	global_start_time = Time_start_clock();
 	test_finished = failures = 0;
 	MyLog(LOGA_INFO, "Starting test 1 - sessionPresent");
 	
@@ -542,7 +502,7 @@ int test2(struct Options options)
 	char* test_topic = "C client test1";
 
 	fprintf(xml, "<testcase classname=\"test2\" name=\"bad subscribe\"");
-	global_start_time = start_clock();
+	global_start_time = Time_start_clock();
 	test_finished = failures = 0;
 	MyLog(LOGA_INFO, "Starting test 2 - bad subscribe");
 

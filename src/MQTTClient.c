@@ -55,6 +55,7 @@
 #include "SocketBuffer.h"
 #include "StackTrace.h"
 #include "Heap.h"
+#include "Time.h"
 
 #if defined(OPENSSL)
 #include <openssl/ssl.h>
@@ -196,69 +197,6 @@ typedef struct
 	MQTTPacket* pack;
 
 } MQTTClients;
-
-void MQTTClient_sleep(long milliseconds)
-{
-	FUNC_ENTRY;
-#if defined(WIN32) || defined(WIN64)
-	Sleep(milliseconds);
-#else
-	usleep(milliseconds*1000);
-#endif
-	FUNC_EXIT;
-}
-
-
-#if defined(WIN32) || defined(WIN64)
-#define START_TIME_TYPE DWORD
-START_TIME_TYPE MQTTClient_start_clock(void)
-{
-	return GetTickCount();
-}
-#elif defined(AIX)
-#define START_TIME_TYPE struct timespec
-START_TIME_TYPE MQTTClient_start_clock(void)
-{
-	static struct timespec start;
-	clock_gettime(CLOCK_REALTIME, &start);
-	return start;
-}
-#else
-#define START_TIME_TYPE struct timeval
-START_TIME_TYPE MQTTClient_start_clock(void)
-{
-	static struct timeval start;
-	gettimeofday(&start, NULL);
-	return start;
-}
-#endif
-
-
-#if defined(WIN32) || defined(WIN64)
-long MQTTClient_elapsed(DWORD milliseconds)
-{
-	return GetTickCount() - milliseconds;
-}
-#elif defined(AIX)
-#define assert(a)
-long MQTTClient_elapsed(struct timespec start)
-{
-	struct timespec now, res;
-
-	clock_gettime(CLOCK_REALTIME, &now);
-	ntimersub(now, start, res);
-	return (res.tv_sec)*1000L + (res.tv_nsec)/1000000L;
-}
-#else
-long MQTTClient_elapsed(struct timeval start)
-{
-	struct timeval now, res;
-
-	gettimeofday(&now, NULL);
-	timersub(&now, &start, &res);
-	return (res.tv_sec)*1000 + (res.tv_usec)/1000;
-}
-#endif
 
 
 int MQTTClient_create(MQTTClient* handle, const char* serverURI, const char* clientId,
@@ -660,7 +598,7 @@ void MQTTClient_stop()
 				{
 					Thread_unlock_mutex(mqttclient_mutex);
 					Log(TRACE_MIN, -1, "sleeping");
-					MQTTClient_sleep(100L);
+					Time_sleep(100L);
 					Thread_lock_mutex(mqttclient_mutex);
 				}
 			}
@@ -797,12 +735,12 @@ int MQTTClient_connectURIVersion(MQTTClient handle, MQTTClient_connectOptions* o
 	if (m->ma && !running)
 	{
 		Thread_start(MQTTClient_run, handle);
-		if (MQTTClient_elapsed(start) >= millisecsTimeout)
+		if (Time_elapsed(start) >= millisecsTimeout)
 		{
 			rc = SOCKET_ERROR;
 			goto exit;
 		}
-		MQTTClient_sleep(100L);
+		Time_sleep(100L);
 	}
 
 	Log(TRACE_MIN, -1, "Connecting to serverURI %s with MQTT version %d", serverURI, MQTTVersion);
@@ -823,7 +761,7 @@ int MQTTClient_connectURIVersion(MQTTClient handle, MQTTClient_connectOptions* o
 	if (m->c->connect_state == 1) /* TCP connect started - wait for completion */
 	{
 		Thread_unlock_mutex(mqttclient_mutex);
-		MQTTClient_waitfor(handle, CONNECT, &rc, millisecsTimeout - MQTTClient_elapsed(start));
+		MQTTClient_waitfor(handle, CONNECT, &rc, millisecsTimeout - Time_elapsed(start));
 		Thread_lock_mutex(mqttclient_mutex);
 		if (rc != 0)
 		{
@@ -884,7 +822,7 @@ int MQTTClient_connectURIVersion(MQTTClient handle, MQTTClient_connectOptions* o
 	if (m->c->connect_state == 2) /* SSL connect sent - wait for completion */
 	{
 		Thread_unlock_mutex(mqttclient_mutex);
-		MQTTClient_waitfor(handle, CONNECT, &rc, millisecsTimeout - MQTTClient_elapsed(start));
+		MQTTClient_waitfor(handle, CONNECT, &rc, millisecsTimeout - Time_elapsed(start));
 		Thread_lock_mutex(mqttclient_mutex);
 		if (rc != 1)
 		{
@@ -907,7 +845,7 @@ int MQTTClient_connectURIVersion(MQTTClient handle, MQTTClient_connectOptions* o
 		MQTTPacket* pack = NULL;
 
 		Thread_unlock_mutex(mqttclient_mutex);
-		pack = MQTTClient_waitfor(handle, CONNACK, &rc, millisecsTimeout - MQTTClient_elapsed(start));
+		pack = MQTTClient_waitfor(handle, CONNACK, &rc, millisecsTimeout - Time_elapsed(start));
 		Thread_lock_mutex(mqttclient_mutex);
 		if (pack == NULL)
 			rc = SOCKET_ERROR;
@@ -969,7 +907,7 @@ int MQTTClient_connectURI(MQTTClient handle, MQTTClient_connectOptions* options,
 
 	FUNC_ENTRY;
 	millisecsTimeout = options->connectTimeout * 1000;
-	start = MQTTClient_start_clock();
+	start = Time_start_clock();
 
 	m->c->keepAliveInterval = options->keepAliveInterval;
 	m->c->cleansession = options->cleansession;
@@ -1160,11 +1098,11 @@ int MQTTClient_disconnect1(MQTTClient handle, int timeout, int call_connection_l
 	was_connected = m->c->connected; /* should be 1 */
 	if (m->c->connected != 0)
 	{
-		start = MQTTClient_start_clock();
+		start = Time_start_clock();
 		m->c->connect_state = -2; /* indicate disconnecting */
 		while (m->c->inboundMsgs->count > 0 || m->c->outboundMsgs->count > 0)
 		{ /* wait for all inflight message flows to finish, up to timeout */
-			if (MQTTClient_elapsed(start) >= timeout)
+			if (Time_elapsed(start) >= timeout)
 				break;
 			Thread_unlock_mutex(mqttclient_mutex);
 			MQTTClient_yield();
@@ -1647,7 +1585,7 @@ MQTTPacket* MQTTClient_waitfor(MQTTClient handle, int packet_type, int* rc, long
 {
 	MQTTPacket* pack = NULL;
 	MQTTClients* m = handle;
-	START_TIME_TYPE start = MQTTClient_start_clock();
+	START_TIME_TYPE start = Time_start_clock();
 
 	FUNC_ENTRY;
 	if (((MQTTClients*)handle) == NULL)
@@ -1724,7 +1662,7 @@ MQTTPacket* MQTTClient_waitfor(MQTTClient handle, int packet_type, int* rc, long
 					}
 				}
 			}
-			if (MQTTClient_elapsed(start) > timeout)
+			if (Time_elapsed(start) > timeout)
 			{
 				pack = NULL;
 				break;
@@ -1742,7 +1680,7 @@ int MQTTClient_receive(MQTTClient handle, char** topicName, int* topicLen, MQTTC
 											 unsigned long timeout)
 {
 	int rc = TCPSOCKET_COMPLETE;
-	START_TIME_TYPE start = MQTTClient_start_clock();
+	START_TIME_TYPE start = Time_start_clock();
 	unsigned long elapsed = 0L;
 	MQTTClients* m = handle;
 
@@ -1766,7 +1704,7 @@ int MQTTClient_receive(MQTTClient handle, char** topicName, int* topicLen, MQTTC
 	if (m->c->messageQueue->count > 0)
 		timeout = 0L;
 
-	elapsed = MQTTClient_elapsed(start);
+	elapsed = Time_elapsed(start);
 	do
 	{
 		int sock = 0;
@@ -1778,7 +1716,7 @@ int MQTTClient_receive(MQTTClient handle, char** topicName, int* topicLen, MQTTC
 			  (MQTTClient)(handles->current->content) == handle)
 				break; /* there was an error on the socket we are interested in */
 		}
-		elapsed = MQTTClient_elapsed(start);
+		elapsed = Time_elapsed(start);
 	}
 	while (elapsed < timeout && m->c->messageQueue->count == 0);
 
@@ -1796,7 +1734,7 @@ exit:
 
 void MQTTClient_yield(void)
 {
-	START_TIME_TYPE start = MQTTClient_start_clock();
+	START_TIME_TYPE start = Time_start_clock();
 	unsigned long elapsed = 0L;
 	unsigned long timeout = 100L;
 	int rc = 0;
@@ -1804,11 +1742,11 @@ void MQTTClient_yield(void)
 	FUNC_ENTRY;
 	if (running) /* yield is not meant to be called in a multi-thread environment */
 	{
-		MQTTClient_sleep(timeout);
+		Time_sleep(timeout);
 		goto exit;
 	}
 
-	elapsed = MQTTClient_elapsed(start);
+	elapsed = Time_elapsed(start);
 	do
 	{
 		int sock = -1;
@@ -1821,7 +1759,7 @@ void MQTTClient_yield(void)
 				MQTTClient_disconnect_internal(m, 0);
 		}
 		Thread_unlock_mutex(mqttclient_mutex);
-		elapsed = MQTTClient_elapsed(start);
+		elapsed = Time_elapsed(start);
 	}
 	while (elapsed < timeout);
 exit:
@@ -1839,7 +1777,7 @@ int pubCompare(void* a, void* b)
 int MQTTClient_waitForCompletion(MQTTClient handle, MQTTClient_deliveryToken mdt, unsigned long timeout)
 {
 	int rc = MQTTCLIENT_FAILURE;
-	START_TIME_TYPE start = MQTTClient_start_clock();
+	START_TIME_TYPE start = Time_start_clock();
 	unsigned long elapsed = 0L;
 	MQTTClients* m = handle;
 
@@ -1863,7 +1801,7 @@ int MQTTClient_waitForCompletion(MQTTClient handle, MQTTClient_deliveryToken mdt
 		goto exit;
 	}
 
-	elapsed = MQTTClient_elapsed(start);
+	elapsed = Time_elapsed(start);
 	while (elapsed < timeout)
 	{
 		Thread_unlock_mutex(mqttclient_mutex);
@@ -1874,7 +1812,7 @@ int MQTTClient_waitForCompletion(MQTTClient handle, MQTTClient_deliveryToken mdt
 			rc = MQTTCLIENT_SUCCESS; /* well we couldn't find it */
 			goto exit;
 		}
-		elapsed = MQTTClient_elapsed(start);
+		elapsed = Time_elapsed(start);
 	}
 
 exit:

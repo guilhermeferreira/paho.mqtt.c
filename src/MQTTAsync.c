@@ -55,6 +55,7 @@
 #include "SocketBuffer.h"
 #include "StackTrace.h"
 #include "Heap.h"
+#include "Time.h"
 
 #define URI_TCP "tcp://"
 
@@ -179,57 +180,6 @@ void MQTTAsync_closeSession(Clients* client);
 void MQTTProtocol_closeSession(Clients* client, int sendwill);
 void MQTTAsync_writeComplete(int socket);
 
-#if defined(WIN32) || defined(WIN64)
-#define START_TIME_TYPE DWORD
-START_TIME_TYPE MQTTAsync_start_clock(void)
-{
-	return GetTickCount();
-}
-#elif defined(AIX)
-#define START_TIME_TYPE struct timespec
-START_TIME_TYPE MQTTAsync_start_clock(void)
-{
-	static struct timespec start;
-	clock_gettime(CLOCK_REALTIME, &start);
-	return start;
-}
-#else
-#define START_TIME_TYPE struct timeval
-START_TIME_TYPE MQTTAsync_start_clock(void)
-{
-	static struct timeval start;
-	gettimeofday(&start, NULL);
-	return start;
-}
-#endif
-
-
-#if defined(WIN32) || defined(WIN64)
-long MQTTAsync_elapsed(DWORD milliseconds)
-{
-	return GetTickCount() - milliseconds;
-}
-#elif defined(AIX)
-#define assert(a)
-long MQTTAsync_elapsed(struct timespec start)
-{
-	struct timespec now, res;
-
-	clock_gettime(CLOCK_REALTIME, &now);
-	ntimersub(now, start, res);
-	return (res.tv_sec)*1000L + (res.tv_nsec)/1000000L;
-}
-#else
-long MQTTAsync_elapsed(struct timeval start)
-{
-	struct timeval now, res;
-
-	gettimeofday(&now, NULL);
-	timersub(&now, &start, &res);
-	return (res.tv_sec)*1000 + (res.tv_usec)/1000;
-}
-#endif
-
 
 typedef struct
 {
@@ -341,18 +291,6 @@ int MQTTAsync_deliverMessage(MQTTAsyncs* m, char* topicName, size_t topicLen, MQ
 #if !defined(NO_PERSISTENCE)
 int MQTTAsync_restoreCommands(MQTTAsyncs* client);
 #endif
-
-void MQTTAsync_sleep(long milliseconds)
-{
-	FUNC_ENTRY;
-#if defined(WIN32) || defined(WIN64)
-	Sleep(milliseconds);
-#else
-	usleep(milliseconds*1000);
-#endif
-	FUNC_EXIT;
-}
-
 
 /**
  * List callback function for comparing clients by socket
@@ -804,7 +742,7 @@ int MQTTAsync_addCommand(MQTTAsync_queuedCommand* command, int command_size)
 	
 	FUNC_ENTRY;
 	MQTTAsync_lock_mutex(mqttcommand_mutex);
-	command->command.start_time = MQTTAsync_start_clock();
+	command->command.start_time = Time_start_clock();
 	if (command->command.type == CONNECT || 
 		(command->command.type == DISCONNECT && command->command.details.dis.internal))
 	{
@@ -844,7 +782,7 @@ void MQTTAsync_startConnectRetry(MQTTAsyncs* m)
 {
 	if (m->automaticReconnect && m->shouldBeConnected)
 	{
-		m->lastConnectionFailedTime = MQTTAsync_start_clock();
+		m->lastConnectionFailedTime = Time_start_clock();
 		if (m->retrying)
 			m->currentInterval = min(m->currentInterval * 2, m->maxRetryInterval);
 		else
@@ -903,7 +841,7 @@ void MQTTAsync_checkDisconnect(MQTTAsync handle, MQTTAsync_command* command)
 
 	FUNC_ENTRY;
 	/* wait for all inflight message flows to finish, up to timeout */;
-	if (m->c->outboundMsgs->count == 0 || MQTTAsync_elapsed(command->start_time) >= command->details.dis.timeout)
+	if (m->c->outboundMsgs->count == 0 || Time_elapsed(command->start_time) >= command->details.dis.timeout)
 	{	
 		int was_connected = m->c->connected;
 		MQTTAsync_closeSession(m->c);
@@ -1323,7 +1261,7 @@ void MQTTAsync_checkTimeouts()
 		MQTTAsyncs* m = (MQTTAsyncs*)(current->content);
 		
 		/* check connect timeout */
-		if (m->c->connect_state != 0 && MQTTAsync_elapsed(m->connect.start_time) > (m->connectTimeout * 1000))
+		if (m->c->connect_state != 0 && Time_elapsed(m->connect.start_time) > (m->connectTimeout * 1000))
 		{
 			if (MQTTAsync_checkConn(&m->connect, m))
 			{
@@ -1366,7 +1304,7 @@ void MQTTAsync_checkTimeouts()
 		{
 			MQTTAsync_queuedCommand* com = (MQTTAsync_queuedCommand*)(cur_response->content);
 			
-			if (1 /*MQTTAsync_elapsed(com->command.start_time) < 120000*/)	
+			if (1 /*Time_elapsed(com->command.start_time) < 120000*/)
 				break; /* command has not timed out */
 			else
 			{
@@ -1384,7 +1322,7 @@ void MQTTAsync_checkTimeouts()
 
 		if (m->automaticReconnect && m->retrying)
 		{
-			if (m->reconnectNow || MQTTAsync_elapsed(m->lastConnectionFailedTime) > (m->currentInterval * 1000))
+			if (m->reconnectNow || Time_elapsed(m->lastConnectionFailedTime) > (m->currentInterval * 1000))
 			{
 				/* to reconnect put the connect command to the head of the command queue */
 				MQTTAsync_queuedCommand* conn = malloc(sizeof(MQTTAsync_queuedCommand));
@@ -1917,7 +1855,7 @@ void MQTTAsync_stop()
 			{
 				MQTTAsync_unlock_mutex(mqttasync_mutex);
 				Log(TRACE_MIN, -1, "sleeping");
-				MQTTAsync_sleep(100L);
+				Time_sleep(100L);
 				MQTTAsync_lock_mutex(mqttasync_mutex);
 			}
 			rc = 1;
@@ -2827,7 +2765,7 @@ MQTTPacket* MQTTAsync_cycle(int* sock, unsigned long timeout, int* rc)
 		*sock = Socket_getReadySocket(0, &tp);
 		Thread_unlock_mutex(socket_mutex);
 		if (!tostop && *sock == 0 && (tp.tv_sec > 0L || tp.tv_usec > 0L))
-			MQTTAsync_sleep(100L);
+			Time_sleep(100L);
 #if defined(OPENSSL)
 	}
 #endif
@@ -3064,7 +3002,7 @@ exit:
 int MQTTAsync_waitForCompletion(MQTTAsync handle, MQTTAsync_token dt, unsigned long timeout)
 {
 	int rc = MQTTASYNC_FAILURE;
-	START_TIME_TYPE start = MQTTAsync_start_clock();
+	START_TIME_TYPE start = Time_start_clock();
 	unsigned long elapsed = 0L;
 	MQTTAsyncs* m = handle;
 
@@ -3089,16 +3027,16 @@ int MQTTAsync_waitForCompletion(MQTTAsync handle, MQTTAsync_token dt, unsigned l
 		goto exit;
 	}
 
-	elapsed = MQTTAsync_elapsed(start);
+	elapsed = Time_elapsed(start);
 	while (elapsed < timeout)
 	{
-		MQTTAsync_sleep(100);
+		Time_sleep(100);
 		if (MQTTAsync_isComplete(handle, dt) == 1)
 		{
 			rc = MQTTASYNC_SUCCESS; /* well we couldn't find it */
 			goto exit;
 		}
-		elapsed = MQTTAsync_elapsed(start);
+		elapsed = Time_elapsed(start);
 	}
 exit:
 	FUNC_EXIT_RC(rc);
