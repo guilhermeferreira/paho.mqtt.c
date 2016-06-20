@@ -405,7 +405,6 @@ int test1(struct Options options)
 	MQTTAsync c;
 	MQTTAsync_connectOptions opts = MQTTAsync_connectOptions_initializer;
 	int rc = 0;
-	char* test_topic = "C client test1";
 
 	fprintf(xml, "<testcase classname=\"test1\" name=\"sessionPresent\"");
 	global_start_time = start_clock();
@@ -455,6 +454,7 @@ exit:
 	return failures;
 }
 
+/*********************************************************************/
 
 void test2_onDisconnect(void* context, MQTTAsync_successData* response)
 {
@@ -531,7 +531,7 @@ void test2_onConnect1(void* context, MQTTAsync_successData* response)
 
 /*********************************************************************
 
-Test1: 0x80 from subscribe
+Test2: 0x80 from subscribe
 
 *********************************************************************/
 int test2(struct Options options)
@@ -539,7 +539,6 @@ int test2(struct Options options)
 	MQTTAsync c;
 	MQTTAsync_connectOptions opts = MQTTAsync_connectOptions_initializer;
 	int rc = 0;
-	char* test_topic = "C client test1";
 
 	fprintf(xml, "<testcase classname=\"test2\" name=\"bad subscribe\"");
 	global_start_time = start_clock();
