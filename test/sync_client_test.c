@@ -1059,7 +1059,7 @@ int subscribe_failure_test()
  
 	rc = MQTTClient_subscribeMany(aclient, 1, &nosubscribe_topics[0], &subqos);
 	assert("Good rc from subscribe", rc == MQTTCLIENT_SUCCESS, "rc was %d", rc);
-	assert("0x80 rc from subscribe", subqos == 0x80, "subqos was %d", subqos);
+	assert("0x80 rc from subscribe", subqos == MQTT_BAD_SUBSCRIBE, "subqos was %d", subqos);
 
 	rc = MQTTClient_disconnect(aclient, 100);
 	assert("Disconnect successful", rc == MQTTCLIENT_SUCCESS, "rc was %d", rc);

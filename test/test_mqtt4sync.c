@@ -440,7 +440,7 @@ int test2(struct Options options)
 	assert("Good rc from subscribe", rc == MQTTCLIENT_SUCCESS, "rc was %d", rc);
 
 	rc = MQTTClient_subscribe(c, "nosubscribe", 2);
-	assert("0x80 from subscribe", rc == 0x80, "rc was %d", rc);
+	assert("0x80 from subscribe", rc == MQTT_BAD_SUBSCRIBE, "rc was %d", rc);
 
 	rc = MQTTClient_subscribeMany(c, 2, topics, qoss);
 	assert("Good rc from subscribe", rc == MQTTCLIENT_SUCCESS, "rc was %d", rc);
