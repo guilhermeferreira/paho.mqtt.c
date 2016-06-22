@@ -17,7 +17,7 @@
 
 # Note: on OS X you should install XCode and the associated command-line tools
 
-PROJECT("paho" C)
+PROJECT("paho-mqtt-c" LANGUAGES C)
 CMAKE_MINIMUM_REQUIRED(VERSION 3.0)
 
 ## build settings
