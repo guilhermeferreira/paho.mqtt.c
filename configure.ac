@@ -129,10 +129,6 @@ AC_ARG_ENABLE(
 	enable_samples=no
 )
 
-AS_IF([test "x$enable_samples" = "xyes"], [
-	AC_CONFIG_FILES([src/samples/Makefile])
-])
-
 AM_CONDITIONAL([PAHO_BUILD_SAMPLES], [test "$enable_samples" = yes])
 
 # Build documentation
