@@ -178,14 +178,14 @@ endif
 
 if PAHO_WITH_SSL
 
-libcommon_ssl_la_CFLAGS  = $(AM_CFLAGS) -DOPENSSL
+libcommon_ssl_la_CFLAGS  = $(AM_CFLAGS)
 
 if PAHO_BUILD_SYNC
-libpaho_mqtt3cs_la_CFLAGS = $(AM_CFLAGS) -DOPENSSL
+libpaho_mqtt3cs_la_CFLAGS = $(AM_CFLAGS)
 endif
 
 if PAHO_BUILD_ASYNC
-libpaho_mqtt3as_la_CFLAGS = $(AM_CFLAGS) -DOPENSSL
+libpaho_mqtt3as_la_CFLAGS = $(AM_CFLAGS)
 endif
 
 endif # if PAHO_WITH_SSL
