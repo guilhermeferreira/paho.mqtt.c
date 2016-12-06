@@ -1,5 +1,10 @@
 language: c
 
+addons:
+  apt:
+    packages:
+      - doxygen
+
 compiler:
   - gcc
   - clang
@@ -10,3 +15,6 @@ os:
   
 script:
   - make
+  - ./bootstrap && rm -rf build-autotools/ && mkdir build-autotools && cd build-autotools && ../configure && make && cd ..
+  - ./bootstrap && rm -rf build-autotools/ && mkdir build-autotools && cd build-autotools && ../configure --enable-samples --enable-doc --with-ssl && make && cd ..
+
