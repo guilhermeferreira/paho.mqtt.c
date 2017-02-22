@@ -279,3 +279,78 @@ html:
 	$(call process_doxygen,DoxyfileV3ClientAPI)
 	$(call process_doxygen,DoxyfileV3AsyncAPI)
 	$(call process_doxygen,DoxyfileV3ClientInternal)
+
+#------------------------------------------------------------------
+# make check
+#------------------------------------------------------------------
+
+UNITY_DIR = test/unit/Unity/src/
+UNIT_TEST_DIR = test/unit/
+UNIT_TEST_OBJS_DIR = build/objs/test/unit/
+PATHB = build/
+SOURCE_OBJS_DIR = build/objs/src/
+RESULT_DIR = test/unit/results/
+COV_DIR ?= test/unit/coverage/
+
+CC = gcc -c
+LD = gcc
+CFLAGS_TEST  = $(CFLAGS)
+CFLAGS_TEST += -I. -I$(UNITY_DIR) -I$(srcdir) -I$(blddir_work) -DTEST
+CFLAGS_TEST += -fprofile-arcs -ftest-coverage -g -Wall -Wextra
+LDFLAGS += -fprofile-arcs -lgcov -pg
+
+#------------------------------------------------------------------
+
+$(SOURCE_OBJS_DIR):
+	mkdir -p $(SOURCE_OBJS_DIR)
+
+$(UNIT_TEST_OBJS_DIR):
+	mkdir -p $(UNIT_TEST_OBJS_DIR)
+
+$(RESULT_DIR):
+	mkdir -p $(RESULT_DIR)
+
+$(COV_DIR):
+	mkdir -p $(COV_DIR)
+
+BUILD_PATHS = $(PATHB) $(PATHD) $(SOURCE_OBJS_DIR) $(UNIT_TEST_OBJS_DIR) $(RESULT_DIR)
+
+#------------------------------------------------------------------
+
+SOURCE_OBJS_FILES = $(patsubst $(srcdir)%.c, $(SOURCE_OBJS_DIR)%.o, $(SOURCE_FILES_AS))
+
+$(SOURCE_OBJS_DIR)%.o: $(srcdir)%.c $(blddir_work)/VersionInfo.h
+	$(CC) $(CFLAGS_TEST) $< -o $@
+
+$(UNIT_TEST_OBJS_DIR)Test%.o: $(UNIT_TEST_DIR)Test%.c
+	$(CC) $(CFLAGS_TEST) $< -o $@
+
+$(PATHB)Test%: $(UNIT_TEST_OBJS_DIR)Test%.o $(UNITY_DIR)unity.o $(SOURCE_OBJS_FILES)
+	$(LD) -o $@ $^ $(LDFLAGS) $(FLAGS_EXE)
+
+$(RESULT_DIR)Test%.txt: $(PATHB)Test%
+	-valgrind --leak-check=full --show-leak-kinds=all ./$< > $@ 2>&1
+	#-./$< > $@ 2>&1
+
+UNIT_TEST_FILES = $(wildcard $(UNIT_TEST_DIR)*.c)
+RESULT_FILES = $(patsubst $(UNIT_TEST_DIR)Test%.c, $(RESULT_DIR)Test%.txt, $(UNIT_TEST_FILES))
+
+#------------------------------------------------------------------
+
+.PHONY: check
+check: $(BUILD_PATHS) $(RESULT_FILES)
+	@echo -e "\n-----------------------\nSUMMARY:\n-----------------------"
+	@echo "`grep -s -e '.* Tests .* Failures .* Ignored' $(RESULT_DIR)*.txt`"
+	@echo -e "\n-----------------------\nPASSES:\n-----------------------"
+	@echo "`grep -s PASS $(RESULT_DIR)*.txt`"
+	@echo -e "\n-----------------------\nIGNORES:\n-----------------------"
+	@echo "`grep -s IGNORE $(RESULT_DIR)*.txt`"
+	@echo -e "\n-----------------------\nFAILURES:\n-----------------------"
+	@echo "`grep -s FAIL $(RESULT_DIR)*.txt`"
+	@echo -e "\nDONE"
+
+.PHONY: coverage
+coverage: check $(COV_DIR)
+	lcov --directory $(SOURCE_OBJS_DIR) --base-directory $(srcdir) --capture --output-file coverage.info
+	genhtml coverage.info -o $(COV_DIR)
+	firefox $(COV_DIR)/index.html
