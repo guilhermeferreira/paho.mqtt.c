@@ -71,6 +71,7 @@ trace_settings_type trace_settings =
 	INVALID_LEVEL
 };
 
+#define MAX_MSG_BUF_LENGTH 512
 #define MAX_FUNCTION_NAME_LENGTH 256
 
 typedef struct
@@ -119,7 +120,7 @@ struct timeval ts, last_ts;
 #else
 struct timeb ts, last_ts;
 #endif
-static char msg_buf[512];
+static char msg_buf[MAX_MSG_BUF_LENGTH + 1];
 
 #if defined(WIN32) || defined(WIN64)
 mutex_type log_mutex;
@@ -406,7 +407,7 @@ void Log(enum LOG_LEVELS log_level, int msgno, const char *format, ...)
 	if (log_level >= trace_settings.trace_level)
 	{
 		const char *temp = NULL;
-		static char msg_buf[512];
+		static char msg_buf[MAX_MSG_BUF_LENGTH + 1];
 		va_list args;
 
 		/* we're using a static character buffer, so we need to make sure only one thread uses it at a time */
