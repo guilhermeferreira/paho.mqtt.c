@@ -14,6 +14,19 @@ sudo: required
 before_install:
   - ./travis-install.sh
 
+install:
+  # Installing lcov
+  - cd ${TRAVIS_BUILD_DIR}
+  - wget http://ftp.de.debian.org/debian/pool/main/l/lcov/lcov_1.13.orig.tar.gz
+  - tar xf lcov_1.13.orig.tar.gz
+  - cd lcov-1.13/
+  - sudo make install
+  - cd ..
+  # Check versions
+  - gcov --version
+  - gcc --version
+  - lcov --version
+
 env:
   global:
    # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
@@ -23,6 +36,7 @@ env:
 
 script:
   - if [[ "$COVERITY_SCAN_BRANCH" != 1 ]]; then ./travis-build.sh; fi
+  - make clean && make check
 
 addons:
   coverity_scan:
@@ -43,5 +57,12 @@ addons:
       - cmake-data
       - mosquitto
       - doxygen
+      - lcov
 
-
+after_success:
+  # Creating report
+  - cd ${TRAVIS_BUILD_DIR}
+  - lcov --directory build/objs/src/ --base-directory src/ --capture --output-file coverage.info
+  - lcov --list coverage.info
+  # Uploading report to CodeCov
+  - bash <(curl -s https://codecov.io/bash) -t e55d8a2e-89e1-4dd5-bcd2-f986145bfdd5 || echo "Codecov did not collect coverage reports"

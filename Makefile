@@ -329,8 +329,8 @@ $(PATHB)Test%: $(UNIT_TEST_OBJS_DIR)Test%.o $(UNITY_DIR)unity.o $(SOURCE_OBJS_FI
 	$(LD) -o $@ $^ $(LDFLAGS) $(FLAGS_EXE)
 
 $(RESULT_DIR)Test%.txt: $(PATHB)Test%
-	-valgrind --leak-check=full --show-leak-kinds=all ./$< > $@ 2>&1
-	#-./$< > $@ 2>&1
+	#-valgrind --leak-check=full --show-leak-kinds=all ./$< > $@ 2>&1
+	-./$< > $@ 2>&1
 
 UNIT_TEST_FILES = $(wildcard $(UNIT_TEST_DIR)*.c)
 RESULT_FILES = $(patsubst $(UNIT_TEST_DIR)Test%.c, $(RESULT_DIR)Test%.txt, $(UNIT_TEST_FILES))
