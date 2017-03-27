@@ -361,7 +361,7 @@ static void Log_output(enum LOG_LEVELS log_level, const char *msg)
 
 static void Log_posttrace(enum LOG_LEVELS log_level, traceEntry* cur_entry)
 {
-	if (((trace_output_level == -1) ? log_level >= trace_settings.trace_level : log_level >= trace_output_level))
+	if (((trace_output_level == INVALID_LEVEL) ? log_level >= trace_settings.trace_level : log_level >= trace_output_level))
 	{
 		char* msg = NULL;
 		
